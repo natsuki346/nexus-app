@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NEXUS v3.1 Prototype</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+        .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); }
+        /* アニメーション */
+        .slide-up { animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        /* マップのダミーデザイン */
+        .map-bg {
+            background-color: #e5e7eb;
+            background-image: radial-gradient(#d1d5db 2px, transparent 2px);
+            background-size: 30px 30px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 overflow-hidden">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const NEXUSApp = () => {
+            const [layer, setLayer] = useState('Messenger'); // Messenger or Main
+            const [activeTab, setActiveTab] = useState('Talk');
+            const [selectedChat, setSelectedChat] = useState(null);
+            const [showPayStep, setShowPayStep] = useState('home'); // home, scan, method, success
+
+            // --- サンプルデータ ---
+            const chats = [
+                { id: 1, name: "田中 健太", lastMsg: "渋谷に着いたよ！", time: "12:45", mbti: "ENFP" },
+                { id: 2, name: "佐藤 美咲", lastMsg: "位置情報送ったから見て", time: "11:20", mbti: "INFJ" }
+            ];
+
+            const posts = [
+                { id: 1, author: "テックキャリア株式会社", content: "26卒向け夏季インターン募集開始！ #就活 #IT #エンジニア", likes: 124 },
+                { id: 2, author: "山田 太郎", content: "MBTI診断に基づいた自己分析のコツをまとめました。 #自己分析 #INTJ", likes: 45 }
+            ];
+
+            // --- 各画面コンポーネント ---
+
+            // 1. ヘッダー (レイヤー切り替え)
+            const Header = () => (
+                <header className={`fixed top-0 w-full z-50 transition-colors duration-300 ${layer === 'Messenger' ? 'bg-white text-blue-600' : 'bg-slate-900 text-white'} px-4 py-3 flex justify-between items-center border-b border-gray-100 shadow-sm`}>
+                    <div className="flex items-center gap-2">
+                        <div className={`w-8 h-8 flex items-center justify-center rounded font-bold italic ${layer === 'Messenger' ? 'bg-blue-600 text-white' : 'bg-white text-slate-900'}`}>N</div>
+                        <span className="font-black text-xl tracking-tighter">NEXUS</span>
+                    </div>
+                    <button 
+                        onClick={() => setLayer(layer === 'Messenger' ? 'Main' : 'Messenger')}
+                        className={`text-[10px] font-bold px-3 py-1 rounded-full border-2 transition-all ${layer === 'Messenger' ? 'border-blue-600 text-blue-600' : 'border-green-400 text-green-400'}`}
+                    >
+                        {layer === 'Messenger' ? 'MESSENGER MODE' : 'MAIN (BUSINESS)'}
+                    </button>
+                </header>
+            );
+
+            // 2. メッセンジャー・トーク詳細 (スプリット・ビュー)
+            const ChatDetail = ({ chat }) => (
+                <div className="fixed inset-0 bg-white z-[60] flex flex-col pt-14">
+                    {/* 上部：マップ (二分割) */}
+                    <div className="h-1/2 map-bg relative flex flex-col items-center justify-center border-b-4 border-white shadow-inner">
+                        <div className="absolute top-4 left-4 glass px-3 py-1 rounded-full text-xs font-bold shadow-sm">
+                            <i className="bi bi-geo-alt-fill text-red-500 mr-1"></i> 渋谷駅周辺 (450m先)
+                        </div>
+                        <div className="relative">
+                            <div className="w-12 h-12 bg-blue-500/30 rounded-full animate-ping absolute -inset-0"></div>
+                            <i className="bi bi-geo-alt-fill text-4xl text-blue-600 relative"></i>
+                        </div>
+                        <p className="mt-2 text-xs font-bold text-gray-600">相手の現在地</p>
+                    </div>
+
+                    {/* 下部：チャット */}
+                    <div className="h-1/2 flex flex-col bg-white">
+                        <div className="p-3 bg-gray-50 flex items-center justify-between border-b">
+                            <button onClick={() => setSelectedChat(null)} className="text-blue-600"><i className="bi bi-chevron-left"></i> 戻る</button>
+                            <span className="font-bold">{chat.name}</span>
+                            <div className="w-8 h-8 bg-gray-200 rounded-full text-[10px] flex items-center justify-center">{chat.mbti}</div>
+                        </div>
+                        <div className="flex-1 p-4 overflow-y-auto space-y-4">
+                            <div className="flex flex-col items-start">
+                                <div className="bg-gray-100 p-3 rounded-2xl rounded-tl-none max-w-[80%] text-sm">{chat.lastMsg}</div>
+                            </div>
+                            <div className="flex flex-col items-end">
+                                <div className="bg-blue-600 text-white p-3 rounded-2xl rounded-tr-none max-w-[80%] text-sm">今マップ開いた！ハチ公の近くにいるね。</div>
+                            </div>
+                        </div>
+                        <div className="p-3 border-t flex items-center gap-2 pb-6">
+                            <button className="text-blue-600 text-xl"><i className="bi bi-plus-circle"></i></button>
+                            <input className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-sm outline-none" placeholder="メッセージ..." />
+                            <button className="text-blue-600 text-xl"><i className="bi bi-send-fill"></i></button>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            // 3. Pay画面 (決済フロー)
+            const PayView = () => (
+                <div className="pt-20 px-6 h-full bg-white overflow-y-auto">
+                    {showPayStep === 'home' && (
+                        <div className="slide-up">
+                            <h2 className="text-xl font-black mb-6">NEXUS Pay</h2>
+                            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-3xl text-white shadow-xl mb-8">
+                                <div className="flex justify-between items-start mb-10">
+                                    <p className="text-sm opacity-80 uppercase tracking-widest">Available Balance</p>
+                                    <div className="text-2xl italic font-black">NEXUS</div>
+                                </div>
+                                <h3 className="text-4xl font-bold mb-1">¥ 12,580</h3>
+                                <p className="text-xs opacity-60 italic">NEXUS point: 420 pt</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <button onClick={() => setShowPayStep('scan')} className="h-32 bg-gray-50 border-2 border-gray-100 rounded-2xl flex flex-col items-center justify-center hover:border-blue-500 transition-all">
+                                    <i className="bi bi-qr-code-scan text-3xl mb-2 text-blue-600"></i>
+                                    <span className="font-bold text-sm">スキャンして支払う</span>
+                                </button>
+                                <button className="h-32 bg-gray-50 border-2 border-gray-100 rounded-2xl flex flex-col items-center justify-center">
+                                    <i className="bi bi-send-plus text-3xl mb-2 text-orange-500"></i>
+                                    <span className="font-bold text-sm">個人送金</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {showPayStep === 'scan' && (
+                        <div className="fixed inset-0 bg-black z-[100] flex flex-col">
+                            <div className="flex-1 flex flex-col items-center justify-center text-white p-10">
+                                <div className="w-64 h-64 border-4 border-blue-500 rounded-3xl relative flex items-center justify-center">
+                                    <div className="w-full h-1 bg-blue-500 absolute animate-bounce"></div>
+                                    <p className="text-xs opacity-50">QRコードを枠内に</p>
+                                </div>
+                                <p className="mt-8 font-bold">QRを読み取っています...</p>
+                                <button onClick={() => setShowPayStep('method')} className="mt-10 bg-white text-black px-6 py-2 rounded-full font-bold">サンプル店舗を認識</button>
+                            </div>
+                            <button onClick={() => setShowPayStep('home')} className="p-10 text-white text-3xl"><i className="bi bi-x-lg"></i></button>
+                        </div>
+                    )}
+
+                    {showPayStep === 'method' && (
+                        <div className="fixed inset-0 bg-gray-100 z-[110] flex flex-col">
+                            <div className="p-6 bg-white border-b pt-14">
+                                <h2 className="text-lg font-black text-center">お支払い内容の確認</h2>
+                                <div className="mt-4 flex justify-between items-center bg-gray-50 p-4 rounded-xl">
+                                    <span>スターバックス 渋谷店</span>
+                                    <span className="font-bold">¥ 680</span>
+                                </div>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <p className="text-sm font-bold text-gray-500">支払い方法を選択</p>
+                                <button onClick={() => setShowPayStep('success')} className="w-full bg-white border-2 border-blue-600 p-4 rounded-xl flex justify-between items-center">
+                                    <div>
+                                        <p className="font-bold">NEXUS Pay残高</p>
+                                        <p className="text-xs text-blue-600">残高: ¥12,580 (手数料0円)</p>
+                                    </div>
+                                    <i className="bi bi-check-circle-fill text-blue-600"></i>
+                                </button>
+                                <button className="w-full bg-white border-2 border-gray-200 p-4 rounded-xl flex justify-between items-center text-gray-400">
+                                    <p className="font-bold">PayPay連携決済</p>
+                                    <i className="bi bi-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {showPayStep === 'success' && (
+                        <div className="fixed inset-0 bg-white z-[120] flex flex-col items-center justify-center p-10 text-center slide-up">
+                            <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-5xl mb-6 shadow-lg">
+                                <i className="bi bi-check-lg"></i>
+                            </div>
+                            <h2 className="text-3xl font-black mb-2 tracking-tighter">SUCCESS!</h2>
+                            <p className="text-gray-500 mb-10 font-medium tracking-tight">決済が完了しました</p>
+                            <div className="w-full bg-gray-50 p-6 rounded-3xl mb-10 text-left">
+                                <div className="flex justify-between mb-2"><span>支払先</span><span className="font-bold text-sm">スタバ 渋谷店</span></div>
+                                <div className="flex justify-between text-xl font-bold"><span>合計</span><span>¥ 680</span></div>
+                            </div>
+                            <button onClick={() => setShowPayStep('home')} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black">閉じる</button>
+                        </div>
+                    )}
+                </div>
+            );
+
+            // 4. Main レイヤー (ビジネス) 
+            const MainView = () => (
+                <div className="pt-20 px-4 h-full overflow-y-auto pb-24">
+                    <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
+                        {['#26卒', '#エンジニア', '#コンサル', '#MBTI', '#自己分析'].map(tag => (
+                            <span key={tag} className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">{tag}</span>
+                        ))}
+                    </div>
+                    {posts.map(post => (
+                        <div key={post.id} className="bg-white border border-gray-100 rounded-2xl p-4 mb-4 shadow-sm">
+                            <div className="flex items-center gap-2 mb-3">
+                                <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center text-white text-xs font-bold">N</div>
+                                <span className="font-bold text-sm">{post.author}</span>
+                            </div>
+                            <p className="text-sm leading-relaxed mb-4 text-gray-700">{post.content}</p>
+                            <div className="flex gap-4 text-gray-400 text-sm border-t pt-3">
+                                <span><i className="bi bi-heart"></i> {post.likes}</span>
+                                <span><i className="bi bi-chat"></i> 12</span>
+                                <span><i className="bi bi-share"></i></span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            );
+
+            return (
+                <div className="max-w-md mx-auto h-screen relative bg-white shadow-2xl overflow-hidden">
+                    <Header />
+                    
+                    <main className="h-full">
+                        {layer === 'Messenger' ? (
+                            activeTab === 'Talk' ? (
+                                <div className="pt-20 px-4">
+                                    <h2 className="text-xl font-black mb-4">Messages</h2>
+                                    {chats.map(chat => (
+                                        <div key={chat.id} onClick={() => setSelectedChat(chat)} className="flex items-center gap-4 p-3 hover:bg-gray-50 border-b border-gray-50 cursor-pointer">
+                                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">{chat.mbti}</div>
+                                            <div className="flex-1">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <span className="font-bold">{chat.name}</span>
+                                                    <span className="text-[10px] text-gray-400">{chat.time}</span>
+                                                </div>
+                                                <p className="text-xs text-gray-500 truncate">{chat.lastMsg}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : activeTab === 'Pay' ? (
+                                <PayView />
+                            ) : null
+                        ) : (
+                            <MainView />
+                        )}
+                    </main>
+
+                    {/* タブバー */}
+                    <nav className="fixed bottom-0 w-full max-w-md glass border-t border-gray-100 flex justify-around py-2 safe-area-bottom z-50">
+                        <button onClick={() => setActiveTab('Talk')} className={`flex flex-col items-center gap-1 ${activeTab === 'Talk' ? 'text-blue-600' : 'text-gray-400'}`}>
+                            <i className={`bi ${activeTab === 'Talk' ? 'bi-chat-fill' : 'bi-chat'} text-xl`}></i>
+                            <span className="text-[10px] font-bold">Talk</span>
+                        </button>
+                        <button onClick={() => setActiveTab('Pay')} className={`flex flex-col items-center gap-1 ${activeTab === 'Pay' ? 'text-blue-600' : 'text-gray-400'}`}>
+                            <i className={`bi ${activeTab === 'Pay' ? 'bi-credit-card-fill' : 'bi-credit-card'} text-xl`}></i>
+                            <span className="text-[10px] font-bold">Pay</span>
+                        </button>
+                        <button onClick={() => setActiveTab('Search')} className={`flex flex-col items-center gap-1 ${activeTab === 'Search' ? 'text-blue-600' : 'text-gray-400'}`}>
+                            <i className={`bi bi-search text-xl`}></i>
+                            <span className="text-[10px] font-bold">Search</span>
+                        </button>
+                        <button onClick={() => setActiveTab('Profile')} className={`flex flex-col items-center gap-1 ${activeTab === 'Profile' ? 'text-blue-600' : 'text-gray-400'}`}>
+                            <i className={`bi bi-person-fill text-xl`}></i>
+                            <span className="text-[10px] font-bold">Profile</span>
+                        </button>
+                    </nav>
+
+                    {/* モーダル表示 */}
+                    {selectedChat && <ChatDetail chat={selectedChat} />}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<NEXUSApp />);
+    </script>
+</body>
+</html>

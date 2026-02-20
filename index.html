@@ -3,116 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NEXUS v4.1 Professional</title>
+    <title>NEXUS v4.2 Final</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", YuGothic, sans-serif; }
-        .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
-        .animate-slide-up { animation: slideUp 0.3s ease-out; }
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        .barcode-line { height: 60px; border-left: 2px solid #000; margin-right: 2px; display: inline-block; }
-        .map-bg { background-color: #f0f4f8; background-image: radial-gradient(#cbd5e1 2px, transparent 2px); background-size: 25px 25px; }
+        body { font-family: -apple-system, sans-serif; background: #f8fafc; }
+        .safe-area { padding-bottom: env(safe-area-inset-bottom); }
+        /* アニメーション */
+        .slide-in { animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        /* バーコードのデザイン */
+        .barcode-stripes {
+            display: flex; align-items: center; justify-content: center;
+            background: white; padding: 10px; border-radius: 4px;
+        }
+        .stripe { background: black; height: 50px; margin-right: 1.5px; }
+        /* 地図背景 */
+        .map-pattern {
+            background-color: #e2e8f0;
+            background-image: radial-gradient(#94a3b8 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
     </style>
 </head>
-<body class="bg-gray-50">
+<body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect } = React;
 
         const NEXUSApp = () => {
             const [activeTab, setActiveTab] = useState('Talk');
             const [selectedChat, setSelectedChat] = useState(null);
-            const [isSplitView, setIsSplitView] = useState(false);
-            const [plusMenuOpen, setPlusMenuOpen] = useState(false);
-            const [locationMenuOpen, setLocationMenuOpen] = useState(false);
-            const [paymentFlow, setPaymentFlow] = useState(null); // 'scanning', 'selecting', 'success'
             const [messages, setMessages] = useState([
                 { id: 1, sender: 'other', text: "渋谷に着いたよ！" },
                 { id: 2, sender: 'me', text: "今向かってる！" }
             ]);
             const [inputText, setInputText] = useState("");
+            const [plusMenuOpen, setPlusMenuOpen] = useState(false);
+            const [locationSubMenu, setLocationSubMenu] = useState(false);
+            const [isSplitView, setIsSplitView] = useState(false);
+            const [payStep, setPayStep] = useState('home'); // home, scanning, selecting, success
 
             // --- メッセージ送信 ---
-            const handleSendMessage = () => {
+            const sendMessage = () => {
                 if (!inputText.trim()) return;
-                const newMsg = { id: Date.now(), sender: 'me', text: inputText };
-                setMessages([...messages, newMsg]);
+                setMessages([...messages, { id: Date.now(), sender: 'me', text: inputText }]);
                 setInputText("");
             };
 
             // --- 画面：Post ---
             const PostView = () => (
-                <div className="pt-24 pb-20 animate-slide-up">
-                    <div className="fixed top-0 w-full max-w-md bg-white z-50 border-b">
+                <div className="pt-24 pb-20 px-4 slide-in">
+                    <div className="fixed top-0 w-full max-w-md bg-white border-b z-50 left-1/2 -translate-x-1/2">
                         <div className="flex items-center p-3 gap-3">
-                            <div className="w-9 h-9 bg-gray-200 rounded-full border overflow-hidden">
-                                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=NEXUS" alt="me" />
+                            <div className="w-10 h-10 bg-gray-200 rounded-full border overflow-hidden">
+                                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="me" />
                             </div>
                             <div className="flex-1 bg-gray-100 rounded-full flex items-center px-4 py-2 text-gray-400 text-sm">
                                 <i className="bi bi-search mr-2"></i> キーワード検索
                             </div>
                         </div>
-                        <div className="flex font-bold text-sm text-center">
-                            <button className="flex-1 py-3 border-b-2 border-blue-600">フォロー中</button>
-                            <button className="flex-1 py-3 text-gray-400">同じハッシュタグ</button>
+                        <div className="flex text-sm font-bold border-t">
+                            <button className="flex-1 py-3 border-b-2 border-blue-600 text-blue-600">フォロー中</button>
+                            <button className="flex-1 py-3 text-gray-400">同じタグ</button>
                         </div>
                     </div>
                     {[1, 2, 3].map(i => (
-                        <div key={i} className="bg-white p-4 border-b">
-                            <div className="flex gap-3 text-sm">
-                                <div className="w-10 h-10 bg-indigo-100 rounded-full flex-shrink-0"></div>
-                                <div className="flex-1">
-                                    <p className="font-bold">NEXUS Official <i className="bi bi-patch-check-fill text-blue-500"></i></p>
-                                    <p className="mt-1 leading-relaxed text-gray-800">新しいSearch機能では、位置情報を使って近くのイベントやユーザーを探索できます！ #NEXUS #Update</p>
-                                    <div className="mt-3 flex gap-8 text-gray-400">
-                                        <span><i className="bi bi-chat"></i> 15</span>
-                                        <span><i className="bi bi-heart"></i> 82</span>
-                                    </div>
-                                </div>
+                        <div key={i} className="bg-white p-4 mb-2 rounded-xl shadow-sm border border-gray-100 flex gap-3">
+                            <div className="w-10 h-10 bg-indigo-500 rounded-full flex-shrink-0"></div>
+                            <div>
+                                <p className="font-bold text-sm">NEXUS News</p>
+                                <p className="text-sm text-gray-700 mt-1">最新のv4.2アップデートが完了しました！Searchタブで地図が使えます。 #NEXUS</p>
                             </div>
                         </div>
                     ))}
                 </div>
             );
 
-            // --- 画面：Search (地図探索) ---
+            // --- 画面：Search (地図) ---
             const SearchView = () => (
-                <div className="h-full pt-14 pb-16 map-bg relative flex flex-col">
+                <div className="h-full pt-14 pb-20 map-pattern relative flex flex-col slide-in">
                     <div className="p-4 z-10">
-                        <div className="bg-white rounded-2xl shadow-lg p-3 flex items-center gap-2">
-                            <i className="bi bi-search text-gray-400"></i>
-                            <input className="flex-1 outline-none text-sm" placeholder="近くのユーザー・店舗を検索" />
+                        <div className="bg-white/90 backdrop-blur rounded-2xl shadow-xl p-3 flex items-center gap-2 border border-white">
+                            <i className="bi bi-geo-alt-fill text-blue-600"></i>
+                            <input className="flex-1 outline-none text-sm bg-transparent" placeholder="近くのユーザー・お店を探索" />
                         </div>
                     </div>
                     <div className="flex-1 relative">
-                        {/* ダミーのピン */}
-                        <div className="absolute top-1/3 left-1/4 text-blue-600 flex flex-col items-center">
-                            <div className="bg-white px-2 py-1 rounded-full shadow text-[10px] font-bold mb-1">サトウさん</div>
-                            <i className="bi bi-geo-alt-fill text-3xl"></i>
+                        <div className="absolute top-1/4 left-1/4 animate-bounce">
+                            <div className="bg-white px-2 py-1 rounded shadow text-[10px] font-bold mb-1">サトウさん</div>
+                            <i className="bi bi-geo-alt-fill text-blue-600 text-3xl"></i>
                         </div>
-                        <div className="absolute top-1/2 right-1/3 text-orange-500 flex flex-col items-center">
-                            <div className="bg-white px-2 py-1 rounded-full shadow text-[10px] font-bold mb-1">カフェ 10%OFF</div>
-                            <i className="bi bi-shop text-3xl"></i>
-                        </div>
-                    </div>
-                    <div className="p-4 z-10">
-                        <div className="bg-white rounded-2xl p-4 shadow-xl border border-blue-100">
-                            <p className="text-xs font-bold text-blue-600 mb-2 underline text-center">位置情報に基づいたおすすめ</p>
-                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                                <div className="min-w-[120px] bg-gray-50 p-2 rounded-lg border">
-                                    <p className="text-[10px] font-bold">IT勉強会</p>
-                                    <p className="text-[9px] text-gray-500">ここから 300m</p>
-                                </div>
-                                <div className="min-w-[120px] bg-gray-50 p-2 rounded-lg border">
-                                    <p className="text-[10px] font-bold">26卒オフ会</p>
-                                    <p className="text-[9px] text-gray-500">ここから 800m</p>
-                                </div>
-                            </div>
+                        <div className="absolute top-1/2 right-1/4">
+                            <div className="bg-orange-500 text-white px-2 py-1 rounded shadow text-[10px] font-bold mb-1">クーポン <i className="bi bi-tag"></i></div>
+                            <i className="bi bi-geo-alt-fill text-orange-500 text-3xl"></i>
                         </div>
                     </div>
                 </div>
@@ -120,83 +108,73 @@
 
             // --- 画面：Pay ---
             const PayView = () => (
-                <div className="pt-10 px-6 pb-24 h-full bg-white animate-slide-up overflow-y-auto">
-                    {/* 残高 */}
-                    <div className="mt-4 bg-slate-900 text-white p-6 rounded-[2rem] shadow-2xl relative overflow-hidden mb-8">
-                        <p className="text-[10px] opacity-50 font-bold uppercase tracking-[0.2em]">Nexus Wallet Balance</p>
-                        <h2 className="text-4xl font-black mt-1">¥ 12,580</h2>
-                        <div className="mt-4 flex gap-2">
-                            <span className="bg-white/10 px-3 py-1 rounded-full text-[10px]">自動チャージ ON</span>
-                        </div>
+                <div className="h-full pt-14 pb-24 px-6 bg-white slide-in overflow-y-auto">
+                    <div className="mt-4 bg-slate-900 text-white p-6 rounded-[2rem] shadow-xl mb-8">
+                        <p className="text-[10px] opacity-50 tracking-widest uppercase font-bold">Balance</p>
+                        <h2 className="text-4xl font-black mt-1 tracking-tight">¥ 12,580</h2>
                     </div>
 
-                    {/* バーコードスキャンボタン (読み取り開始) */}
-                    <button onClick={() => setPaymentFlow('scanning')} className="w-full bg-blue-600 text-white p-5 rounded-2xl flex items-center justify-center gap-3 shadow-lg mb-6 hover:bg-blue-700 active:scale-95 transition-all">
+                    {/* バーコード読み取りボタン (先に読み取る) */}
+                    <button onClick={() => setPayStep('scanning')} className="w-full bg-blue-600 text-white p-5 rounded-2xl flex items-center justify-center gap-3 shadow-lg mb-8 active:scale-95 transition-all">
                         <i className="bi bi-upc-scan text-2xl"></i>
-                        <span className="font-bold text-lg">バーコードを読み取る</span>
+                        <span className="font-bold text-lg tracking-tight">バーコードを読み取る</span>
                     </button>
 
-                    {/* My バーコード (縦線デザイン) */}
-                    <div className="bg-gray-50 border border-gray-100 p-8 rounded-[2rem] text-center">
-                        <p className="text-[10px] font-bold text-gray-400 mb-4 tracking-widest uppercase">My Pay Barcode</p>
-                        <div className="bg-white p-6 inline-block rounded-xl shadow-inner border border-gray-100">
-                            {/* バーコードの擬似デザイン */}
-                            <div className="flex items-center justify-center bg-white px-4 py-2">
-                                {[1,3,1,2,4,1,2,1,3,2,1,4].map((w, i) => (
-                                    <div key={i} className="bg-black mr-[2px]" style={{width: `${w}px`, height: '50px'}}></div>
-                                ))}
-                            </div>
-                            <p className="text-[10px] mt-2 font-mono tracking-[0.5em]">1234 5678 9012</p>
+                    <div className="bg-gray-50 p-8 rounded-[2.5rem] text-center border border-gray-100">
+                        <p className="text-[10px] text-gray-400 font-bold mb-4 tracking-widest uppercase">My Pay Barcode</p>
+                        <div className="barcode-stripes shadow-sm border">
+                            {[2,4,1,3,2,1,4,2,3,1,2,4,2].map((w,i) => (
+                                <div key={i} className="stripe" style={{width: `${w}px`}}></div>
+                            ))}
                         </div>
+                        <p className="mt-2 font-mono text-xs text-gray-400 tracking-[0.4em]">1234 5678 9012</p>
                     </div>
 
-                    {/* 決済フロー：スキャニング中イメージ */}
-                    {paymentFlow === 'scanning' && (
-                        <div className="fixed inset-0 bg-black z-[100] flex flex-col items-center justify-center p-10 text-white animate-slide-up">
+                    {/* スキャン中 */}
+                    {payStep === 'scanning' && (
+                        <div className="fixed inset-0 bg-black/90 z-[100] flex flex-col items-center justify-center text-white p-10 animate-slide-up">
                             <div className="w-72 h-48 border-2 border-blue-500 rounded-xl relative overflow-hidden">
-                                <div className="absolute inset-0 bg-blue-500/20 animate-pulse"></div>
-                                <div className="w-full h-1 bg-blue-500 absolute top-1/2 animate-bounce shadow-[0_0_15px_rgba(59,130,246,1)]"></div>
+                                <div className="absolute top-1/2 w-full h-1 bg-blue-400 shadow-[0_0_10px_blue] animate-bounce"></div>
                             </div>
-                            <p className="mt-10 font-bold">バーコードを認識しました</p>
-                            <button onClick={() => setPaymentFlow('selecting')} className="mt-6 bg-white text-black px-8 py-3 rounded-full font-bold">決済方法の選択へ</button>
+                            <p className="mt-10 font-bold tracking-widest animate-pulse">SCANNING...</p>
+                            <button onClick={() => setPayStep('selecting')} className="mt-6 bg-white text-black px-8 py-3 rounded-full font-bold">（デモ）読み込み完了</button>
                         </div>
                     )}
 
-                    {/* 決済フロー：セブン風 決済方法選択 */}
-                    {paymentFlow === 'selecting' && (
-                        <div className="fixed inset-0 bg-gray-100 z-[110] flex flex-col animate-slide-up">
-                            <div className="p-6 bg-white border-b pt-14 text-center">
-                                <p className="text-gray-500 text-sm mb-1">お支払い合計</p>
-                                <h3 className="text-3xl font-black">¥ 1,280</h3>
+                    {/* 決済方法選択 (セブン風) */}
+                    {payStep === 'selecting' && (
+                        <div className="fixed inset-0 bg-gray-100 z-[110] flex flex-col slide-in pt-12">
+                            <div className="bg-white p-8 text-center border-b">
+                                <p className="text-sm text-gray-500">お支払い合計</p>
+                                <h3 className="text-4xl font-black mt-1 tracking-tight">¥ 1,280</h3>
                             </div>
-                            <div className="p-4 grid grid-cols-2 gap-3 mt-4 flex-1">
-                                <button onClick={() => setPaymentFlow('success')} className="bg-white border-2 border-blue-500 rounded-xl flex flex-col items-center justify-center p-4">
-                                    <div className="text-blue-600 font-black italic mb-1">NEXUS</div>
-                                    <span className="text-xs font-bold">残高払い</span>
+                            <div className="p-4 grid grid-cols-2 gap-3 mt-4">
+                                <button onClick={() => setPayStep('success')} className="bg-white border-2 border-blue-500 rounded-2xl p-6 flex flex-col items-center justify-center">
+                                    <span className="text-blue-600 font-black italic mb-1 text-lg">NEXUS</span>
+                                    <span className="text-[10px] font-bold">残高払い</span>
                                 </button>
-                                <button onClick={() => setPaymentFlow('success')} className="bg-white border-2 border-gray-200 rounded-xl flex flex-col items-center justify-center p-4">
+                                <button onClick={() => setPayStep('success')} className="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center">
                                     <i className="bi bi-credit-card text-2xl mb-1 text-gray-700"></i>
-                                    <span className="text-xs font-bold">クレジットカード</span>
+                                    <span className="text-[10px] font-bold">カード</span>
                                 </button>
-                                <button onClick={() => setPaymentFlow('success')} className="bg-white border-2 border-gray-200 rounded-xl flex flex-col items-center justify-center p-4">
+                                <button onClick={() => setPayStep('success')} className="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center">
                                     <span className="text-red-500 font-black text-sm mb-1">PayPay</span>
-                                    <span className="text-xs font-bold">PayPay決済</span>
+                                    <span className="text-[10px] font-bold">PayPay</span>
                                 </button>
-                                <button onClick={() => setPaymentFlow('success')} className="bg-white border-2 border-gray-200 rounded-xl flex flex-col items-center justify-center p-4 text-gray-400">
+                                <button onClick={() => setPayStep('success')} className="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center text-gray-300">
                                     <i className="bi bi-three-dots text-2xl mb-1"></i>
-                                    <span className="text-xs font-bold">その他</span>
+                                    <span className="text-[10px] font-bold">その他</span>
                                 </button>
                             </div>
-                            <button onClick={() => setPaymentFlow(null)} className="m-4 bg-gray-300 py-4 rounded-xl font-bold text-gray-600">キャンセル</button>
+                            <button onClick={() => setPayStep('home')} className="mx-4 mt-auto mb-10 bg-gray-300 py-4 rounded-xl font-bold">キャンセル</button>
                         </div>
                     )}
 
-                    {paymentFlow === 'success' && (
-                        <div className="fixed inset-0 bg-white z-[120] flex flex-col items-center justify-center p-10 text-center animate-slide-up">
-                            <div className="w-24 h-24 bg-green-500 text-white rounded-full flex items-center justify-center text-5xl mb-6 shadow-xl"><i className="bi bi-check-lg"></i></div>
-                            <h2 className="text-3xl font-black mb-2">決済完了</h2>
-                            <p className="text-gray-400 font-bold mb-10 tracking-widest">Thank you!</p>
-                            <button onClick={() => setPaymentFlow(null)} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black tracking-widest">ホームに戻る</button>
+                    {payStep === 'success' && (
+                        <div className="fixed inset-0 bg-white z-[120] flex flex-col items-center justify-center p-10 text-center slide-in">
+                            <i className="bi bi-check-circle-fill text-green-500 text-8xl mb-6"></i>
+                            <h2 className="text-3xl font-black tracking-tighter uppercase">Success</h2>
+                            <button onClick={() => setPayStep('home')} className="mt-12 w-full py-4 bg-slate-900 text-white rounded-2xl font-black">閉じる</button>
                         </div>
                     )}
                 </div>
@@ -205,89 +183,85 @@
             // --- 画面：Talk詳細 ---
             const ChatDetail = () => (
                 <div className="fixed inset-0 bg-white z-[60] flex flex-col">
-                    <div className="h-14 flex items-center px-4 border-b flex-shrink-0 bg-white mt-0">
+                    {/* ヘッダー */}
+                    <div className="h-14 flex items-center px-4 border-b flex-shrink-0 bg-white pt-2">
                         <button onClick={() => {setSelectedChat(null); setIsSplitView(false);}} className="text-2xl mr-4"><i className="bi bi-chevron-left"></i></button>
                         <span className="font-bold flex-1 text-center">{selectedChat.name}</span>
                         <div className="w-8"></div>
                     </div>
 
+                    {/* 二分割マップ */}
                     {isSplitView && (
-                        <div className="h-2/5 map-bg relative border-b-2 border-blue-100 animate-slide-up">
-                            <div className="absolute top-4 left-4 bg-white/90 p-2 rounded-lg text-[9px] font-bold shadow-sm border border-blue-100">
-                                <span className="text-blue-600">相互フォロー中</span><br/>
-                                <span className="text-orange-600">近くにクーポンあり <i className="bi bi-tag-fill"></i></span>
-                            </div>
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="h-1/3 map-pattern relative border-b-2 border-blue-100 slide-in">
+                            <div className="absolute inset-0 flex items-center justify-center">
                                 <i className="bi bi-geo-alt-fill text-blue-600 text-3xl animate-bounce"></i>
+                            </div>
+                            <div className="absolute top-2 left-2 bg-white/90 p-2 rounded text-[9px] font-bold border border-blue-100 shadow-sm">
+                                リアルタイム位置共有中...
                             </div>
                         </div>
                     )}
 
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                        {messages.map((m) => (
+                    {/* チャット履歴 */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
+                        {messages.map(m => (
                             <div key={m.id} className={`flex ${m.sender === 'me' ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[75%] p-3 rounded-2xl text-[13px] leading-relaxed ${m.sender === 'me' ? 'bg-green-500 text-white rounded-tr-none' : 'bg-gray-100 text-gray-800 rounded-tl-none'}`}>
+                                <div className={`max-w-[75%] p-3 rounded-2xl text-[13px] shadow-sm ${m.sender === 'me' ? 'bg-green-500 text-white rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'}`}>
                                     {m.text}
                                 </div>
                             </div>
                         ))}
                     </div>
 
-                    <div className="p-2 border-t bg-white">
+                    {/* 入力欄 */}
+                    <div className="p-3 bg-white border-t">
                         <div className="flex items-center gap-2">
-                            <button onClick={() => setPlusMenuOpen(!plusMenuOpen)} className={`text-2xl transition-all ${plusMenuOpen ? 'rotate-45 text-gray-400' : 'text-gray-500'}`}>
-                                <i className="bi bi-plus-lg"></i>
-                            </button>
+                            <button onClick={() => setPlusMenuOpen(!plusMenuOpen)} className={`text-2xl transition-all ${plusMenuOpen ? 'rotate-45 text-gray-300' : 'text-gray-400'}`}><i className="bi bi-plus-lg"></i></button>
                             <input 
                                 value={inputText}
                                 onChange={(e) => setInputText(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                                className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-[14px] outline-none border-none" 
-                                placeholder="メッセージ..." 
+                                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                                className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-sm outline-none" 
+                                placeholder="メッセージを入力" 
                             />
-                            <button onClick={handleSendMessage} className={`font-bold px-2 transition-colors ${inputText ? 'text-blue-500' : 'text-gray-300'}`}>送信</button>
+                            <button onClick={sendMessage} className={`font-bold px-2 ${inputText.trim() ? 'text-blue-500' : 'text-gray-300'}`}>送信</button>
                         </div>
-
                         {plusMenuOpen && (
-                            <div className="grid grid-cols-4 gap-6 p-6 animate-slide-up">
-                                <button className="flex flex-col items-center gap-2">
-                                    <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center text-2xl text-gray-600"><i className="bi bi-image"></i></div>
+                            <div className="grid grid-cols-4 gap-6 p-6 slide-in">
+                                <button className="flex flex-col items-center gap-1">
+                                    <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center text-xl border text-gray-600"><i className="bi bi-image"></i></div>
                                     <span className="text-[10px] font-bold">写真</span>
                                 </button>
-                                <button className="flex flex-col items-center gap-2">
-                                    <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center text-2xl text-gray-600"><i className="bi bi-camera-video"></i></div>
+                                <button className="flex flex-col items-center gap-1">
+                                    <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center text-xl border text-gray-600"><i className="bi bi-camera-video"></i></div>
                                     <span className="text-[10px] font-bold">動画</span>
                                 </button>
-                                <button onClick={() => setLocationMenuOpen(true)} className="flex flex-col items-center gap-2">
-                                    <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl text-blue-600 border border-blue-100"><i className="bi bi-geo-alt"></i></div>
-                                    <span className="text-[10px] font-bold">位置情報</span>
+                                <button onClick={() => setLocationSubMenu(true)} className="flex flex-col items-center gap-1">
+                                    <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-xl border border-blue-100 text-blue-600"><i className="bi bi-geo-alt"></i></div>
+                                    <span className="text-[10px] font-bold text-blue-600">位置情報</span>
                                 </button>
-                                <button className="flex flex-col items-center gap-2">
-                                    <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center text-2xl text-orange-600 border border-orange-100"><i className="bi bi-currency-yen"></i></div>
-                                    <span className="text-[10px] font-bold">Pay</span>
+                                <button className="flex flex-col items-center gap-1">
+                                    <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center text-xl border border-orange-100 text-orange-600"><i className="bi bi-currency-yen"></i></div>
+                                    <span className="text-[10px] font-bold text-orange-600">Pay</span>
                                 </button>
                             </div>
                         )}
                     </div>
 
-                    {/* 位置情報サブメニュー */}
-                    {locationMenuOpen && (
-                        <div className="fixed inset-0 bg-black/40 z-[100] flex flex-col justify-end animate-slide-up">
-                            <div className="bg-white rounded-t-3xl p-6 pb-10">
-                                <h4 className="text-center font-bold mb-6 text-gray-500 text-sm">位置情報メニュー</h4>
+                    {/* 位置情報のサブメニュー */}
+                    {locationSubMenu && (
+                        <div className="fixed inset-0 bg-black/50 z-[100] flex flex-col justify-end slide-in">
+                            <div className="bg-white rounded-t-[2rem] p-6 pb-12">
+                                <h4 className="text-center font-bold mb-6 text-gray-400 text-xs tracking-widest">位置情報メニュー</h4>
                                 <div className="space-y-3">
                                     <button onClick={() => {
                                         setMessages([...messages, {id: Date.now(), sender:'me', text: "📍 現在地を送信しました"}]);
-                                        setLocationMenuOpen(false); setPlusMenuOpen(false);
-                                    }} className="w-full py-4 bg-gray-50 rounded-2xl font-bold flex items-center justify-center gap-2">
-                                        <i className="bi bi-send-fill text-blue-500"></i> 現在地を送信する
-                                    </button>
+                                        setLocationSubMenu(false); setPlusMenuOpen(false);
+                                    }} className="w-full py-4 bg-gray-100 rounded-2xl font-bold">現在地を送信する</button>
                                     <button onClick={() => {
-                                        setIsSplitView(true); setLocationMenuOpen(false); setPlusMenuOpen(false);
-                                    }} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg">
-                                        <i className="bi bi-people-fill"></i> リアルタイム位置を見る
-                                    </button>
-                                    <button onClick={() => setLocationMenuOpen(false)} className="w-full py-4 text-gray-400 font-bold">キャンセル</button>
+                                        setIsSplitView(true); setLocationSubMenu(false); setPlusMenuOpen(false);
+                                    }} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200">リアルタイム位置を見る</button>
+                                    <button onClick={() => setLocationSubMenu(false)} className="w-full py-4 text-gray-400 font-bold">キャンセル</button>
                                 </div>
                             </div>
                         </div>
@@ -300,23 +274,21 @@
                     <main className="flex-1 overflow-hidden">
                         {activeTab === 'Post' && <PostView />}
                         {activeTab === 'Talk' && (
-                            <div className="pt-12 px-4 h-full overflow-y-auto">
+                            <div className="pt-14 px-4 h-full overflow-y-auto slide-in">
                                 <div className="flex justify-between items-center py-4 px-2">
                                     <h2 className="text-2xl font-black italic">Talk</h2>
-                                    <i className="bi bi-person-plus text-xl"></i>
+                                    <i className="bi bi-chat-right-text text-xl"></i>
                                 </div>
-                                {[{id:1, name:"田中 健太", msg:"渋谷に着いたよ！", time:"12:45"}, {id:2, name:"佐藤 美咲", msg:"位置情報送るね", time:"昨日"}].map(c => (
-                                    <div key={c.id} onClick={() => setSelectedChat(c)} className="flex items-center gap-4 py-3 border-b border-gray-50 active:bg-gray-100 px-2 transition-colors">
-                                        <div className="w-14 h-14 bg-gray-100 rounded-full border overflow-hidden">
-                                            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${c.id * 123}`} alt="av" />
+                                {[{id:1, name:"田中 健太", msg:"渋谷に着いたよ！"}, {id:2, name:"佐藤 美咲", msg:"今から行くね"}].map(c => (
+                                    <div key={c.id} onClick={() => setSelectedChat(c)} className="flex items-center gap-4 py-4 px-2 border-b border-gray-50 active:bg-slate-50 transition-colors">
+                                        <div className="w-14 h-14 bg-gray-200 rounded-full border border-white shadow-sm overflow-hidden">
+                                            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${c.id}`} alt="av" />
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <span className="font-bold text-gray-800">{c.name}</span>
-                                                <span className="text-[10px] text-gray-400">{c.time}</span>
-                                            </div>
+                                        <div className="flex-1">
+                                            <p className="font-bold text-gray-900">{c.name}</p>
                                             <p className="text-xs text-gray-400 truncate">{c.msg}</p>
                                         </div>
+                                        <span className="text-[10px] text-gray-300">12:34</span>
                                     </div>
                                 ))}
                             </div>
@@ -325,17 +297,15 @@
                         {activeTab === 'Search' && <SearchView />}
                     </main>
 
-                    {/* タブバー (LINE風 4タブ) */}
-                    <nav className="h-16 flex border-t bg-white safe-area-bottom z-50">
+                    {/* タブバー (LINE風 4個) */}
+                    <nav className="h-16 flex border-t bg-white safe-area z-50">
                         {[
-                            {id:'Post', icon:'grid'},
-                            {id:'Talk', icon:'chat-dots'},
-                            {id:'Pay', icon:'credit-card'},
-                            {id:'Search', icon:'compass'}
+                            {id:'Post', icon:'grid'}, {id:'Talk', icon:'chat-dots'},
+                            {id:'Pay', icon:'credit-card'}, {id:'Search', icon:'compass'}
                         ].map(t => (
                             <button key={t.id} onClick={() => {setActiveTab(t.id); setSelectedChat(null);}} className={`flex-1 flex flex-col items-center justify-center gap-1 ${activeTab === t.id ? 'text-blue-600' : 'text-gray-400'}`}>
                                 <i className={`bi bi-${t.icon}${activeTab === t.id ? '-fill' : ''} text-xl`}></i>
-                                <span className="text-[9px] font-bold uppercase tracking-wider">{t.id}</span>
+                                <span className="text-[9px] font-bold uppercase">{t.id}</span>
                             </button>
                         ))}
                     </nav>
